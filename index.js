@@ -153,9 +153,29 @@ const specs = [
     }
 ];
 
-app.get('/', (req, res) => {
-    res.render('index', { specs: specs });
+app.get('/page/:pageNumber', (req, res) => {
+    const page = parseInt(req.params.pageNumber) || 1; // หน้าที่ผู้ใช้ขอ
+    const limit = 10; // จำนวนรายการต่อหน้า
+    const skip = (page - 1) * limit; // จำนวนรายการที่ข้าม
+
+    // แบ่งข้อมูลตามหน้าที่เลือก
+    const paginatedSpecs = specs.slice(skip, skip + limit);
+    
+    // คำนวณจำนวนหน้าทั้งหมด
+    const totalPages = Math.ceil(specs.length / limit);
+
+    // ส่งข้อมูลไปยังหน้า index
+    res.render('index', { 
+        specs: paginatedSpecs, 
+        currentPage: page, 
+        totalPages: totalPages 
+    });
 });
+
+app.get('/', (req, res) => {
+    res.redirect('/page/1'); // เริ่มที่หน้าแรก
+});
+
 
 app.get('/test', (req, res) => {
     res.send('Test')

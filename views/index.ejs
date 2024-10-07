@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Recommendation System Computer PC for suitable usage</title>
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -16,13 +16,12 @@
             <a href="/"><li>ส่วนประกอบคอมพิวเตอร์</li></a>
         </ul>
     </div>
-    <div class="com">
         <div class="specFull">
-            <h1>Computer Specifications</h1>
+            <h1 style="background-color: rgb(0, 40, 52);padding: 15px;border-radius: 5px;color: aliceblue;border: 1px solid #ccc;">Computer Specifications</h1>
             <div class="spec-grid"> <!-- เพิ่ม div สำหรับกริด -->
                 <% specs.forEach(spec => { %>
                     <div class="spec">
-                        <h2>CPU: <%= spec.CPU %></h2>
+                        <h2><%= spec.CPU %></h2>
                         <p>Motherboard: <%= spec.MB %></p>
                         <p>Graphics Card: <%= spec.VGA %></p>
                         <p>RAM: <%= spec.RAM %></p>
@@ -35,9 +34,21 @@
                     </div>
                 <% }) %>
             </div>
-        </div>
+            
+            <div class="pagination">
+                <% if (currentPage > 1) { %>
+                    <a href="/page/<%= currentPage - 1 %>">Previous</a>
+                <% } %>
         
-    </div>
+                <% for (let i = 1; i <= totalPages; i++) { %>
+                    <a href="/page/<%= i %>" class="<%= currentPage === i ? 'active' : '' %>"><%= i %></a>
+                <% } %>
+        
+                <% if (currentPage < totalPages) { %>
+                    <a href="/page/<%= currentPage + 1 %>">Next</a>
+                <% } %>
+            </div>
+        </div>
     
 
 </body>

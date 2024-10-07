@@ -1,7 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     margin: 0;
-    background-color: rgb(101, 106, 255);
+    background-color: rgb(0, 30, 39);
 }
 
 a {
@@ -11,46 +11,27 @@ a {
 .bar_home{
     display: flex; /* จัดกึ่งกลางแนวนอน */
     align-items: center;
-    background-color: rgb(0, 0, 149);
-    padding-top: 5px;
-    padding-bottom: 5px;
-    padding-left: 5%;
+    padding: 20px;
+    border-bottom: 1px solid #ccc;
+    background-color: rgb(0, 40, 52);
 }
 
 .bar_home ul {
     display: flex;
     list-style: none;
     color: antiquewhite;
-    margin-left: 10%; /* ลบจุด (bullet points) */
+    margin-left: 200px;
 }
 
 .bar_home li {
-    width: 200px;
-    font-size: 16px; /* ลบจุด (bullet points) */
+    margin-right: 80px;
+    font-size: 17px;
 }
 
 .bar_home a {
     color: antiquewhite;
     font-size: 20px;
     font-weight: bold;
-}
-
-.bar_home_01 {
-    background-color: rgb(0, 0, 149);
-    height: 750px;
-    width: 10%;
-    display: grid; /* ใช้ Grid */
-    grid-template-rows: repeat(auto-fill, minmax(50px, 1fr)); /* กำหนดแถวตามขนาด */
-    justify-items: center; /* จัดตำแหน่งให้ตรงกลางแนวนอน */
-    align-items: center; /* จัดตำแหน่งให้ตรงกลางแนวตั้ง */
-    text-align: center;
-    padding-top: 35px;
-    font-size: 30px;
-}
-
-.bar_home_01 i {
-    font-size: 70px;
-    color: rgb(149, 149, 255);
 }
 
 .com {
@@ -68,11 +49,36 @@ a {
 }
 
 .spec {
-    background-color: #f8f8f8; /* สีพื้นหลัง */
+    background-color: rgb(0, 40, 52); /* สีพื้นหลัง */
     padding: 15px; /* ช่องว่างภายใน */
     border: 1px solid #ccc; /* เส้นขอบ */
     border-radius: 5px; /* มุมโค้ง */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* เงาเล็กน้อย */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    color: aliceblue; /* เงาเล็กน้อย */
 }
+
+.pagination {
+    margin: 40px;
+    text-align: right;
+}
+.pagination a {
+    padding: 10px;
+    margin: 5px;
+    text-decoration: none;
+    color: white;
+    border: 1px solid #ccc;
+    background-color: rgb(0, 59, 77);
+    font-weight: bold;
+}
+
+.pagination a.active {
+    background-color: #007bff;
+    color: white;
+}
+
+.pagination a:hover {
+    background-color: #000000;
+}
+
 
 
