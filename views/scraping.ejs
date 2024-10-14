@@ -15,6 +15,15 @@
             <a href="/com_list"><li>รายการคอมพิวเตอร์</li></a>
             <a href="/companent"><li>ส่วนประกอบคอมพิวเตอร์</li></a>
         </ul>
+        <form action="/logout" method="POST">
+            <button type="submit">ออกจากระบบ</button>
+        </form>
     </div>
+
+    <form action="/scrape" method="POST">
+        <label for="url">กรอก URL ที่ต้องการทำการ Web Scraping:</label>
+        <input type="text" id="url" name="url" placeholder="กรอก URL ของเว็บไซต์" required>
+        <button type="submit">เริ่ม Web Scraping</button>
+    </form>
 </body>
 </html>

@@ -2,6 +2,10 @@ const express = require('express');
 const app = express();
 const port = 3000;
 const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoStore = require('connect-mongo');
+const bcrypt = require('bcrypt');
+const bodyParser = require('body-parser');
 // เชื่อมต่อกับ MongoDBmongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/
 mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0', { 
     useNewUrlParser: true, 
@@ -12,6 +16,7 @@ mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.ne
     console.log("Error connecting to MongoDB:", error);
 });
 
+app.use(bodyParser.urlencoded({ extended: true }));
 // กำหนด Schema
 const computerSchema = new mongoose.Schema({
     BrandCPU: String,
@@ -76,6 +81,85 @@ const Spec = mongoose.model('spec_com', computerSchema, 'spec_com');
 app.set('view engine', 'ejs');
 
 app.use(express.static('public'));
+
+
+// หน้าแอคมิน
+app.use(session({
+    secret: 'KennyKey', // ใช้เป็นความลับในการเข้ารหัสเซสชัน
+    resave: false,
+    saveUninitialized: true,
+    store: MongoStore.create({ mongoUrl: 'mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0' }),
+    cookie: { maxAge: 1000 * 60 * 60 * 24 } // อายุของคุกกี้ (1 วัน)
+}));
+
+const adminSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true }
+});
+
+const Admin = mongoose.model('com_admin', adminSchema, 'com_admin');
+
+app.get('/register', (req, res) => {
+    res.render('registerAdmin'); // หน้าลงทะเบียนสำหรับแอดมิน
+});
+
+app.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10); // เข้ารหัสรหัสผ่าน
+    const newAdmin = new Admin({
+        username: username,
+        password: hashedPassword
+    });
+
+    try {
+        await newAdmin.save();
+        res.redirect('/Adminlogin'); // หลังจากสมัครสำเร็จ ให้ไปหน้าล็อกอิน
+    } catch (error) {
+        res.status(500).send('Error creating admin');
+    }
+});
+
+app.get('/Adminlogin', (req, res) => {
+    res.render('loginAsmin'); // แสดงหน้าล็อกอิน
+});
+
+app.post('/Adminlogin', async (req, res) => {
+    const { username, password } = req.body;
+    const admin = await Admin.findOne({ username: username });
+    
+    if (admin) {
+        const validPassword = await bcrypt.compare(password, admin.password);
+        if (validPassword) {
+            req.session.adminId = admin._id; // เก็บ session เมื่อเข้าสู่ระบบสำเร็จ
+            res.redirect('/admin/dashboard'); // ไปยังหน้าแอดมิน
+        } else {
+            res.status(400).send('Invalid username or password');
+        }
+    } else {
+        res.status(400).send('Invalid username or password');
+    }
+});
+
+function requireLogin(req, res, next) {
+    if (!req.session.adminId) {
+        return res.redirect('/Adminlogin'); // ถ้าไม่ได้ล็อกอินให้กลับไปหน้า login
+    }
+    next();
+}
+
+app.get('/admin/dashboard', requireLogin, (req, res) => {
+    res.render('scraping'); // หน้าหลักของแอดมิน
+});
+
+app.post('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).send('Error logging out');
+        }
+        res.redirect('/Adminlogin'); // เมื่อออกจากระบบแล้วให้กลับไปที่หน้า login
+    });
+});
+
 
 // Route สำหรับแสดงรายการในรูปแบบ pagination
 
