@@ -286,6 +286,7 @@ app.get('/search', async (req, res) => {
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
             ]
         });
 
@@ -340,6 +341,7 @@ app.get('/com_list/search', async (req, res) => {
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
             ]
         })
         .skip(skip)
@@ -349,6 +351,7 @@ app.get('/com_list/search', async (req, res) => {
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
             ]
         });
 
