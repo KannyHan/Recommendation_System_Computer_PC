@@ -17,9 +17,9 @@
         </ul>
     </div>
     <form action="/com_list/search" method="GET">
-        <input type="text" name="query" placeholder="ค้นหาคำ..." value="<%= query %>">
+        <input type="text" name="query" placeholder="ค้นหาสเปคคอมพิวเตอร์..." value="<%= query %>">
         <button type="submit">ค้นหา</button>
-        <a href="/com_list/page/1" style="margin-left: 10px;">รีเซ็ต</a> <!-- ปุ่มรีเซ็ต -->
+        <a href="/com_list/page/1" style="margin-left: 10px;"class="resetBtn">รีเซ็ต</a> <!-- ปุ่มรีเซ็ต -->
     </form>
         <div class="specFull">
             <h1 style="padding: 15px;border-radius: 5px;color: black;border: 1px solid #ccc;box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);">Computer Specifications</h1>
@@ -27,12 +27,18 @@
                 <% if (specs.length > 0) { %>
                     <% specs.forEach(spec => { %>
                         <div class="spec">
-                            <h2><%= spec.ModelCPU %></h2>
+                            <a href="javascript:void(0);" class="openModal"
+                                   data-rank1="<%= spec.Rank1 %>"
+                                   data-rank2="<%= spec.Rank2 %>"
+                                   data-rank3="<%= spec.Rank3 %>"
+                                   data-cpu="<%= spec.ModelCPU %>">
+                                   <h2><%= spec.ModelCPU %></h2>
+                            </a>
                             <p>Motherboard: <%= spec.ModelMainboard %></p>
                             <p>Graphics Card: <%= spec.ModelVGA %></p>
                             <p>RAM: <%= spec.RAM_Size %> GB</p>
-                            <p>SSD: <%= spec.CapacitySSD %> GB</p>
-                            <p>HDD: <%= spec.CapacityHDD %> GB</p>
+                            <p>SSD: <%= spec.CapacitySSD %> MB</p>
+                            <p>HDD: <%= spec.CapacityHDD %> MB</p>
                             <p>Power Supply: <%= spec.PS %> W</p>
                             <p>Case: <%= spec.ModelCASE %></p>
                             <p>Cooling: <%= spec.ModelCOOLING %></p>
@@ -45,21 +51,88 @@
             </div>
             
             <div class="pagination">
+                <% 
+                const maxPagesToShow = 5; 
+                let startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2)); // คำนวณหน้าเริ่มต้นที่จะแสดง
+                let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1); // คำนวณหน้าสุดท้ายที่จะแสดง
+            
+                // ถ้าหน้าสุดท้ายเกิน totalPages ให้ขยับ startPage
+                if (endPage - startPage < maxPagesToShow - 1) {
+                    startPage = Math.max(1, endPage - maxPagesToShow + 1);
+                }
+                %>
+            
+                <!-- ปุ่ม "Previous" -->
                 <% if (currentPage > 1) { %>
                     <a href="/com_list/search?query=<%= query %>&page=<%= currentPage - 1 %>">Previous</a>
                 <% } %>
             
-                <% for (let i = 1; i <= totalPages; i++) { %>
+                <!-- แสดงเลขหน้า -->
+                <% for (let i = startPage; i <= endPage; i++) { %>
                     <a href="/com_list/search?query=<%= query %>&page=<%= i %>" class="<%= currentPage === i ? 'active' : '' %>">
                         <%= i %>
                     </a>
                 <% } %>
             
+                <!-- ปุ่ม "Next" -->
                 <% if (currentPage < totalPages) { %>
                     <a href="/com_list/search?query=<%= query %>&page=<%= currentPage + 1 %>">Next</a>
                 <% } %>
-            </div>            
+            </div>
         </div>
+
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2>CPU Details</h2>
+                <p><strong>ประเภทการใช้งานอันดับ 1:</strong> <span id="modal-rank1"></span></p>
+                <p><strong>ประเภทการใช้งานอันดับ 2:</strong> <span id="modal-rank2"></span></p>
+                <p><strong>ประเภทการใช้งานอันดับ 3:</strong> <span id="modal-rank3"></span></p>
+            </div>
+        </div>
+    
+        <script>
+            // Get the modal
+            var modal = document.getElementById("modal");
+    
+            // Get all elements with class "openModal"
+            var openModalLinks = document.querySelectorAll(".openModal");
+    
+            // Get the <span> element that closes the modal
+            var closeModal = document.getElementsByClassName("close")[0];
+    
+            // When the user clicks on a link, open the modal and display the information
+            openModalLinks.forEach(function(link) {
+                link.onclick = function(event) {
+                    event.preventDefault();
+    
+                    // Get data attributes from the clicked link
+                    var rank1 = this.getAttribute("data-rank1");
+                    var rank2 = this.getAttribute("data-rank2");
+                    var rank3 = this.getAttribute("data-rank3");
+    
+                    // Update modal content
+                    document.getElementById("modal-rank1").textContent = rank1;
+                    document.getElementById("modal-rank2").textContent = rank2;
+                    document.getElementById("modal-rank3").textContent = rank3;
+    
+                    // Display the modal
+                    modal.style.display = "block";
+                };
+            });
+    
+            // When the user clicks on <span> (x), close the modal
+            closeModal.onclick = function() {
+                modal.style.display = "none";
+            };
+    
+            // When the user clicks anywhere outside the modal, close it
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            };
+        </script>    
     
 
 </body>

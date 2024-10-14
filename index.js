@@ -10,6 +10,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const { Parser } = require('json2csv');
 const fs = require('fs');
+const puppeteer = require('puppeteer');
 // เชื่อมต่อกับ MongoDBmongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/
 mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0', { 
     useNewUrlParser: true, 
@@ -158,76 +159,98 @@ app.get('/admin/dashboard', requireLogin, (req, res) => {
 });
 
 async function scrapeLinks(url) {
-    const response = await axios.get(url);
-    const $ = cheerio.load(response.data);
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(url);
 
-    const productLinks = [];
-
-    // ค้นหาลิงก์ที่อยู่ในตารางสเปคคอม
-    $('table.spec-table a').each((i, element) => {
-        const link = $(element).attr('href');
-        if (link) {
-            // เพิ่มลิงก์ที่ได้ลงใน array
-            productLinks.push(link);
-        }
+    // ดึงข้อมูลลิงก์จากหน้า
+    const productLinks = await page.evaluate(() => {
+        const products = [];
+        document.querySelectorAll('div.my-list-wrapper ul.my-list-item li.spec-item').forEach(item => {
+            const product = {
+                link: item.querySelector('.name a').href,
+            };
+            products.push(product);
+        });
+        return products;
     });
 
+    await browser.close();
     return productLinks;
 }
 
 // ฟังก์ชันดึงข้อมูลจากลิงก์ของอุปกรณ์
 async function scrapeProductDetails(productUrl) {
-    const response = await axios.get(productUrl);
-    const $ = cheerio.load(response.data);
+    try {
+        const response = await axios.get(productUrl);  // ใช้ productUrl
+        const $ = cheerio.load(response.data);
 
-    // ดึงข้อมูลที่ต้องการจากหน้าอุปกรณ์
-    const productDetails = {
-        name: $('h1.product-title').text().trim(),
-        price: $('span.product-price').text().trim(),
-        description: $('div.product-description').text().trim(),
-        link: productUrl,
-    };
-
-    return productDetails;
+        // ดึงข้อมูลที่ต้องการ
+        const specifications = {};
+        $('.specificate-list').each((index, element) => {
+            const title = $(element).find('.specificate-title').text().trim();
+            const info = $(element).find('.specificate-info').text().trim();
+            if (title && info) {
+                specifications[title] = info;
+            }
+        });
+        return specifications;
+    } catch (error) {
+        console.error(`Error scraping ${productUrl}:`, error.message); // แสดงข้อมูลผิดพลาด
+        return null;
+    }
 }
+
 
 // ฟังก์ชันหลักในการดึงข้อมูลและบันทึกเป็น CSV
-async function scrapeData(url) {
-    const productLinks = await scrapeLinks(url); // ดึงลิงก์อุปกรณ์ทั้งหมด
+async function scrapeData(url, res) {
+    const productLinks = await scrapeLinks(url); // ดึงลิงก์ทั้งหมด
     const productData = [];
 
-    // ดึงข้อมูลจากแต่ละลิงก์ของอุปกรณ์
-    for (let link of productLinks) {
-        const productDetails = await scrapeProductDetails(link);
+    for (let index = 0; index < productLinks.length; index++) {
+        const link = productLinks[index];
+        const productDetails = await scrapeProductDetails(link.link);  // ส่งค่าลิงก์เข้าไป
         productData.push(productDetails);
-    }
 
-    // แปลงข้อมูลเป็น CSV
-    const json2csvParser = new Parser();
-    const csv = json2csvParser.parse(productData);
+        // แปลงข้อมูลเป็น CSV
+        const json2csvParser = new Parser();
+        const csv = json2csvParser.parse(productDetails);
 
-    // บันทึกไฟล์ CSV
-    const filePath = 'products.csv';
-    fs.writeFileSync(filePath, csv);
+        // สร้างชื่อไฟล์ตามลิงก์ หรือ index
+        const filePath = `products_${index + 1}.csv`;  // ตั้งชื่อไฟล์โดยใช้ index
 
-    return filePath; // คืนค่าชื่อไฟล์ CSV
-}
+        // บันทึกไฟล์ CSV
+        fs.writeFileSync(filePath, csv);
 
-app.post('/scrape', async (req, res) => {
-    const url = req.body.url; // รับ URL ที่ผู้ใช้กรอก
+        // ตรวจสอบไฟล์ที่ถูกสร้าง
+        if (fs.existsSync(filePath)) {
+            console.log(`File ${filePath} has been created successfully.`);
+        } else {
+            console.error(`File ${filePath} was not created.`);
+        }
 
-    try {
-        // เรียกใช้ฟังก์ชัน scrapeData
-        const filePath = await scrapeData(url);
-
-        // ส่งไฟล์ CSV ให้ผู้ใช้ดาวน์โหลด
+        // ส่งไฟล์ให้ผู้ใช้ดาวน์โหลด
         res.download(filePath, (err) => {
             if (err) {
                 console.log('Error downloading file:', err);
             } else {
-                console.log('File downloaded');
+                console.log('File downloaded:', filePath);
             }
         });
+    }
+
+    // ส่งข้อมูลทั้งหมดเมื่อเสร็จสิ้น
+    return productData; // หรือคืนค่ารายชื่อไฟล์
+}
+
+// ใน route handler ส่ง `res` ไปยังฟังก์ชัน scrapeData
+app.post('/scrape', async (req, res) => {
+    const url = req.body.url; // รับ URL ที่ผู้ใช้กรอก
+
+    try {
+        // เรียกใช้ฟังก์ชัน scrapeData และส่ง `res` ไป
+        await scrapeData(url, res); // ส่ง `res` ไปที่ scrapeData
+
     } catch (error) {
         console.error('Error during scraping:', error);
         res.status(500).send('Error during scraping');
@@ -310,9 +333,6 @@ app.get('/com_list/search', async (req, res) => {
     const limit = 10; // จำนวนรายการต่อหน้า
     const skip = (page - 1) * limit;
 
-    if (!query) {
-        return res.redirect('/com_list/page/1');
-    }
 
     try {
         // ค้นหาจากชื่อคอมพิวเตอร์หรือซีพียู
@@ -332,13 +352,23 @@ app.get('/com_list/search', async (req, res) => {
             ]
         });
 
-        const totalPages = Math.ceil(totalSpecs / limit);
+        const totalPages = Math.ceil(totalSpecs / limit); // คำนวณจำนวนหน้าทั้งหมด
+        const maxPagesToShow = 5; // จำนวนหน้าที่จะแสดง
+        let startPage = Math.max(1, page - Math.floor(maxPagesToShow / 2));
+        let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+        // ถ้าหน้าสุดท้ายเกิน totalPages ให้ขยับ startPage
+        if (endPage - startPage < maxPagesToShow - 1) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1);
+        }
 
         res.render('com_list', {
             specs: specs,
             currentPage: page,
             totalPages: totalPages,
-            query: query // ส่งคำค้นไปยังหน้าผลลัพธ์
+            query: query,
+            startPage: startPage,
+            endPage: endPage,
         });
     } catch (err) {
         res.status(500).send('Error searching specs');
