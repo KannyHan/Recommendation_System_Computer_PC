@@ -12,44 +12,55 @@
         <a href="/test">ระบบแนะนำการเลือกคอมพิวเตอร์พีซีให้เหมาะกับการใช้งาน</a>
         <ul>
             <a href="/"><li>หน้าแรก</li></a>
-            <a href="/"><li>รายการคอมพิวเตอร์</li></a>
-            <a href="/"><li>ส่วนประกอบคอมพิวเตอร์</li></a>
+            <a href="/com_list"><li>รายการคอมพิวเตอร์</li></a>
+            <a href="/companent"><li>ส่วนประกอบคอมพิวเตอร์</li></a>
         </ul>
     </div>
-        <div class="specFull">
-            <h1 style="padding: 15px;border-radius: 5px;color: black;border: 1px solid #ccc;box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);">Computer Specifications</h1>
-            <div class="spec-grid"> <!-- เพิ่ม div สำหรับกริด -->
-                <% specs.forEach(spec => { %>
-                    <div class="spec">
-                        <h2><%= spec.CPU %></h2>
-                        <p>Motherboard: <%= spec.MB %></p>
-                        <p>Graphics Card: <%= spec.VGA %></p>
-                        <p>RAM: <%= spec.RAM %></p>
-                        <p>SSD: <%= spec.SSD %></p>
-                        <p>HDD: <%= spec.HDD %></p>
-                        <p>Power Supply: <%= spec.PSU %></p>
-                        <p>Case: <%= spec.CASE %></p>
-                        <p>Cooling: <%= spec.COOLING %></p>
-                        <p>Monitor: <%= spec.MONITOR %></p>
-                    </div>
-                <% }) %>
-            </div>
-            
-            <div class="pagination">
-                <% if (currentPage > 1) { %>
-                    <a href="/page/<%= currentPage - 1 %>">Previous</a>
-                <% } %>
-        
-                <% for (let i = 1; i <= totalPages; i++) { %>
-                    <a href="/page/<%= i %>" class="<%= currentPage === i ? 'active' : '' %>"><%= i %></a>
-                <% } %>
-        
-                <% if (currentPage < totalPages) { %>
-                    <a href="/page/<%= currentPage + 1 %>">Next</a>
-                <% } %>
-            </div>
-        </div>
-    
+    <form action="/search" method="GET">
+        <input type="text" name="query" placeholder="ค้นหาคำ..." value="<%= query %>">
+        <button type="submit">ค้นหา</button>
+    </form>
 
+    <!-- แสดงผลลัพธ์การค้นหา -->
+    <% if (specs.length > 0) { %>
+        <div class="specFull">
+            <h2>ผลการค้นหาสำหรับ "<%= query %>"</h2>
+            <table border="1" cellspacing="0" cellpadding="10">
+                <thead>
+                    <tr>
+                        <th>CPU Model</th>
+                        <th>Motherboard</th>
+                        <th>Graphics Card</th>
+                        <th>RAM (GB)</th>
+                        <th>SSD (GB)</th>
+                        <th>HDD (GB)</th>
+                        <th>Power Supply (W)</th>
+                        <th>Case</th>
+                        <th>Cooling</th>
+                        <th>Monitor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% specs.forEach(spec => { %>
+                        <tr>
+                            <td><%= spec.ModelCPU %></td>
+                            <td><%= spec.ModelMainboard %></td>
+                            <td><%= spec.ModelVGA %></td>
+                            <td><%= spec.RAM_Size %></td>
+                            <td><%= spec.CapacitySSD %></td>
+                            <td><%= spec.CapacityHDD %></td>
+                            <td><%= spec.PS %></td>
+                            <td><%= spec.ModelCASE %></td>
+                            <td><%= spec.ModelCOOLING %></td>
+                            <td><%= spec.ModelMONITOR %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    <% } else if (query) { %>
+        <p>ไม่พบผลลัพธ์สำหรับ "<%= query %>"</p>
+    <% } %>
+    
 </body>
 </html>
