@@ -1,46 +1,33 @@
-const express = require('express');
-const app = express();
-const port = 3000;
-const mongoose = require('mongoose');
-// เชื่อมต่อกับ MongoDBmongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/
-mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0', { 
-    useNewUrlParser: true, 
-    useUnifiedTopology: true 
-}).then(() => {
-    console.log("Connected to MongoDB");
-}).catch((error) => {
-    console.log("Error connecting to MongoDB:", error);
-});
+const puppeteer = require('puppeteer');
 
-// กำหนด Schema
-const computerSchema = new mongoose.Schema({
-    BrandCPU: String,
-    SeriesCPU: String,
-    ModelCPU: String,
-  });
+async function scrapeProductLinks(url) {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.goto(url);
 
-// สร้างโมเดลจาก Schema
-const Spec = mongoose.model("spec_com", computerSchema);
+    // ดึงข้อมูลลิงก์จากหน้า
+    const productLinks = await page.evaluate(() => {
+        const products = [];
+        document.querySelectorAll('div.my-list-wrapper ul.my-list-item li.spec-item').forEach(item => {
+            const product = {
+                type: item.querySelector('.type').textContent.trim(),
+                name: item.querySelector('.name a').textContent.trim(),
+                link: item.querySelector('.name a').href,
+                price: item.querySelector('.price').textContent.trim(),
+            };
+            products.push(product);
+        });
+        return products;
+    });
 
-// สร้าง route เพื่อแสดงข้อมูลจาก MongoDB
-app.get('/', async (req, res) => {
-  try {
-    const specs = await Spec.find(); // ดึงข้อมูลทั้งหมดจากคอลเลกชัน comments
-    console.log('Data fetched from MongoDB:', specs); // แสดงข้อมูลที่ดึงมาในคอนโซล
+    await browser.close();
+    return productLinks;
+}
 
-    if (specs.length === 0) {
-      return res.send('ไม่มีข้อมูลในคอลเลกชัน comments');
-    }
+async function main() {
+    const url = 'https://notebookspec.com/pc/9675980';
+    const products = await scrapeProductLinks(url);
+    console.log(products);
+}
 
-    // ส่งข้อมูลทั้งหมดในรูป JSON
-    res.json(specs); 
-
-  } catch (err) {
-    console.error('เกิดข้อผิดพลาดในการดึงข้อมูล:', err); // แสดงข้อผิดพลาดใน console
-    res.status(500).send('เกิดข้อผิดพลาดในการดึงข้อมูล');
-  }
-});
-
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+main();

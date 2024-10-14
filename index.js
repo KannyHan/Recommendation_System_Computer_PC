@@ -6,6 +6,10 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const bcrypt = require('bcrypt');
 const bodyParser = require('body-parser');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const { Parser } = require('json2csv');
+const fs = require('fs');
 // เชื่อมต่อกับ MongoDBmongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/
 mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0', { 
     useNewUrlParser: true, 
@@ -17,6 +21,8 @@ mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.ne
 });
 
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(express.urlencoded({ extended: true }));
 // กำหนด Schema
 const computerSchema = new mongoose.Schema({
     BrandCPU: String,
@@ -150,6 +156,84 @@ function requireLogin(req, res, next) {
 app.get('/admin/dashboard', requireLogin, (req, res) => {
     res.render('scraping'); // หน้าหลักของแอดมิน
 });
+
+async function scrapeLinks(url) {
+    const response = await axios.get(url);
+    const $ = cheerio.load(response.data);
+
+    const productLinks = [];
+
+    // ค้นหาลิงก์ที่อยู่ในตารางสเปคคอม
+    $('table.spec-table a').each((i, element) => {
+        const link = $(element).attr('href');
+        if (link) {
+            // เพิ่มลิงก์ที่ได้ลงใน array
+            productLinks.push(link);
+        }
+    });
+
+    return productLinks;
+}
+
+// ฟังก์ชันดึงข้อมูลจากลิงก์ของอุปกรณ์
+async function scrapeProductDetails(productUrl) {
+    const response = await axios.get(productUrl);
+    const $ = cheerio.load(response.data);
+
+    // ดึงข้อมูลที่ต้องการจากหน้าอุปกรณ์
+    const productDetails = {
+        name: $('h1.product-title').text().trim(),
+        price: $('span.product-price').text().trim(),
+        description: $('div.product-description').text().trim(),
+        link: productUrl,
+    };
+
+    return productDetails;
+}
+
+// ฟังก์ชันหลักในการดึงข้อมูลและบันทึกเป็น CSV
+async function scrapeData(url) {
+    const productLinks = await scrapeLinks(url); // ดึงลิงก์อุปกรณ์ทั้งหมด
+    const productData = [];
+
+    // ดึงข้อมูลจากแต่ละลิงก์ของอุปกรณ์
+    for (let link of productLinks) {
+        const productDetails = await scrapeProductDetails(link);
+        productData.push(productDetails);
+    }
+
+    // แปลงข้อมูลเป็น CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(productData);
+
+    // บันทึกไฟล์ CSV
+    const filePath = 'products.csv';
+    fs.writeFileSync(filePath, csv);
+
+    return filePath; // คืนค่าชื่อไฟล์ CSV
+}
+
+app.post('/scrape', async (req, res) => {
+    const url = req.body.url; // รับ URL ที่ผู้ใช้กรอก
+
+    try {
+        // เรียกใช้ฟังก์ชัน scrapeData
+        const filePath = await scrapeData(url);
+
+        // ส่งไฟล์ CSV ให้ผู้ใช้ดาวน์โหลด
+        res.download(filePath, (err) => {
+            if (err) {
+                console.log('Error downloading file:', err);
+            } else {
+                console.log('File downloaded');
+            }
+        });
+    } catch (error) {
+        console.error('Error during scraping:', error);
+        res.status(500).send('Error during scraping');
+    }
+});
+
 
 app.post('/logout', (req, res) => {
     req.session.destroy(err => {
