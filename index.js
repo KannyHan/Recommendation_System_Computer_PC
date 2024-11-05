@@ -11,6 +11,7 @@ const cheerio = require('cheerio');
 const { Parser } = require('json2csv');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
+const _ = require('lodash');
 // เชื่อมต่อกับ MongoDBmongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/
 mongoose.connect('mongodb+srv://kenny:Bihbk4EGAj6JwqxZ@cluster0.olj3q.mongodb.net/spec?retryWrites=true&w=majority&appName=Cluster0', { 
     useNewUrlParser: true, 
@@ -82,8 +83,66 @@ const computerSchema = new mongoose.Schema({
     Rank3: String
   });
 
+  const computerSchemaJIB = new mongoose.Schema({
+    ModelCom: String,
+    BrandCPU: String,
+    SeriesCPU: String,
+    ModelCPU: String,
+    CPU_Base_Clock: Number,
+    PriceCPU: Number,
+    BrandMainboard: String,
+    ModelMainboard: String,
+    Mainboard_CPU_Support: String,
+    MemoryMainboard: Number,
+    Mainboard_Memory_Support: String,
+    PriceMainboard: Number,
+    BrandVGA: String,
+    ChipsetVGA: String,
+    SeriesVGA: String,
+    ModelVGA: String,
+    VGA_Base_Clock: Number,
+    VGA_Boost_Clock: Number,
+    VGA_Memory_Clock: Number,
+    VGA_Memory_Size: Number,
+    PriceVGA: Number,
+    RAM_Size: Number,
+    RAM_Speed: Number,
+    PriceRAM: Number,
+    CapacitySSD: Number,
+    Read_SSD: Number,
+    Write_SSD: Number,
+    PriceSSD: Number,
+    CapacitySSD2: Number,
+    Read_SSD2: Number,
+    Write_SSD2: Number,
+    PriceSSD2: Number,
+    CapacityHDD: Number,
+    Speed_HDD: Number,
+    PriceHDD: Number,
+    PS: Number,
+    PricePS: Number,
+    BrandCASE: String,
+    ModelCASE: String,
+    WeightCASE: Number,
+    I_O_Ports_CASE: String,
+    PriceCASE: Number,
+    BrandCOOLING: String,
+    ModelCOOLING: String,
+    Fan_Built_In_COOLING: String,
+    PriceCOOLING: Number,
+    BrandMONITOR: String,
+    ModelMONITOR: String,
+    Display_Size_MONITOR: Number,
+    Max_Resolution_MONITOR: String,
+    Refresh_Rate_MONITOR: Number,
+    PriceMONITOR: Number,
+    Rank1: String,
+    Rank2: String,
+    Rank3: String
+  });
 // สร้างโมเดลจาก Schema
 const Spec = mongoose.model('spec_com', computerSchema, 'spec_com');
+const SpecJIB = mongoose.model('spec_com_jib', computerSchemaJIB, 'spec_com_jib');
 
 app.set('view engine', 'ejs');
 
@@ -211,33 +270,34 @@ async function scrapeData(url, res) {
         const link = productLinks[index];
         const productDetails = await scrapeProductDetails(link.link);  // ส่งค่าลิงก์เข้าไป
         productData.push(productDetails);
-
-        // แปลงข้อมูลเป็น CSV
-        const json2csvParser = new Parser();
-        const csv = json2csvParser.parse(productDetails);
-
-        // สร้างชื่อไฟล์ตามลิงก์ หรือ index
-        const filePath = `products_${index + 1}.csv`;  // ตั้งชื่อไฟล์โดยใช้ index
-
-        // บันทึกไฟล์ CSV
-        fs.writeFileSync(filePath, csv);
-
-        // ตรวจสอบไฟล์ที่ถูกสร้าง
-        if (fs.existsSync(filePath)) {
-            console.log(`File ${filePath} has been created successfully.`);
-        } else {
-            console.error(`File ${filePath} was not created.`);
-        }
-
-        // ส่งไฟล์ให้ผู้ใช้ดาวน์โหลด
-        res.download(filePath, (err) => {
-            if (err) {
-                console.log('Error downloading file:', err);
-            } else {
-                console.log('File downloaded:', filePath);
-            }
-        });
     }
+
+
+    // แปลงข้อมูลเป็น CSV
+    const json2csvParser = new Parser();
+    const csv = json2csvParser.parse(productData);
+
+    // สร้างชื่อไฟล์ตามลิงก์ หรือ index
+    const filePath = `products_com.csv`;  // ตั้งชื่อไฟล์โดยใช้ index
+
+    // บันทึกไฟล์ CSV
+    fs.writeFileSync(filePath, csv , 'utf8');
+
+    // ตรวจสอบไฟล์ที่ถูกสร้าง
+    if (fs.existsSync(filePath)) {
+        console.log(`File ${filePath} has been created successfully.`);
+    } else {
+        console.error(`File ${filePath} was not created.`);
+    }
+
+    // ส่งไฟล์ให้ผู้ใช้ดาวน์โหลด
+    res.download(filePath, (err) => {
+        if (err) {
+            console.log('Error downloading file:', err);
+        } else {
+            console.log('File downloaded:', filePath);
+        }
+    });
 
     // ส่งข้อมูลทั้งหมดเมื่อเสร็จสิ้น
     return productData; // หรือคืนค่ารายชื่อไฟล์
@@ -273,8 +333,9 @@ app.post('/logout', (req, res) => {
 
 // หน้าแรก
 app.get('/', (req, res) => {
-    const specs = []; // กำหนดค่าเริ่มต้นเป็นว่างเปล่า
-    res.render('index', { specs: specs, query: '' }); // เริ่มที่หน้าแรก
+    const specs = [];
+    const specsJIB = []; // กำหนดค่าเริ่มต้นเป็นว่างเปล่า
+    res.render('index', { specs: specs, specsJIB: specsJIB, query: '' }); // เริ่มที่หน้าแรก
 });
 
 app.get('/search', async (req, res) => {
@@ -285,13 +346,24 @@ app.get('/search', async (req, res) => {
         const specs = await Spec.find({
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
                 { Rank1: { $regex: query, $options: 'i' }},
             ]
         });
 
+        const specsJIB = await SpecJIB.find({
+            $or: [
+                { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
+                { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
+                { ModelCom: { $regex: query, $options: 'i' }},
+            ]
+        });
+
         // ส่งข้อมูลผลการค้นหากลับไปที่หน้า index
-        res.render('index', { specs: specs, query: query });
+        res.render('index', { specs: specs, specsJIB: specsJIB, query: query });
     } catch (err) {
         res.status(500).send('Error retrieving specs');
     }
@@ -315,6 +387,8 @@ app.get('/com_list/page/:pageNumber', async (req, res) => {
         const totalSpecs = await Spec.countDocuments();
 
         const totalPages = Math.ceil(totalSpecs / limit); // คำนวณจำนวนหน้าทั้งหมด
+
+        specs.sort((a, b) => a.ModelCPU.localeCompare(b.ModelCPU));
 
         // ส่งข้อมูลไปยังหน้า com_list
         res.render('com_list', { 
@@ -340,6 +414,7 @@ app.get('/com_list/search', async (req, res) => {
         const specs = await Spec.find({
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
                 { Rank1: { $regex: query, $options: 'i' }},
             ]
@@ -350,8 +425,95 @@ app.get('/com_list/search', async (req, res) => {
         const totalSpecs = await Spec.countDocuments({
             $or: [
                 { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
                 { ModelVGA: { $regex: query, $options: 'i' } },
                 { Rank1: { $regex: query, $options: 'i' }},
+            ]
+        });
+
+        const totalPages = Math.ceil(totalSpecs / limit); // คำนวณจำนวนหน้าทั้งหมด
+        const maxPagesToShow = 5; // จำนวนหน้าที่จะแสดง
+        let startPage = Math.max(1, page - Math.floor(maxPagesToShow / 2));
+        let endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+        specs.sort((a, b) => a.ModelCPU.localeCompare(b.ModelCPU));
+
+        // ถ้าหน้าสุดท้ายเกิน totalPages ให้ขยับ startPage
+        if (endPage - startPage < maxPagesToShow - 1) {
+            startPage = Math.max(1, endPage - maxPagesToShow + 1);
+        }
+
+        res.render('com_list', {
+            specs: specs,
+            currentPage: page,
+            totalPages: totalPages,
+            query: query,
+            startPage: startPage,
+            endPage: endPage,
+        });
+    } catch (err) {
+        res.status(500).send('Error searching specs');
+    }
+});
+
+app.get('/com_list_brand', (req, res) => {
+    res.redirect('/com_list_brand/page/1');
+});
+
+app.get('/com_list_brand/page/:pageNumber', async (req, res) => {
+    const page = parseInt(req.params.pageNumber) || 1; // หน้าที่ผู้ใช้ขอ
+    const limit = 10; // จำนวนรายการต่อหน้า
+    const skip = (page - 1) * limit;
+
+    try {
+        // ดึงข้อมูลจาก MongoDB collection 'speccom' พร้อม pagination
+        const specs = await SpecJIB.find().skip(skip).limit(limit);
+
+        // ดึงข้อมูลทั้งหมดเพื่อคำนวณจำนวนหน้า
+        const totalSpecs = await SpecJIB.countDocuments();
+
+        const totalPages = Math.ceil(totalSpecs / limit); // คำนวณจำนวนหน้าทั้งหมด
+
+        // ส่งข้อมูลไปยังหน้า com_list
+        res.render('com_list_brand', { 
+            specs: specs, 
+            currentPage: page, 
+            totalPages: totalPages, 
+            query: ''
+        });
+    } catch (err) {
+        res.status(500).send('Error retrieving specs');
+    }
+});
+
+app.get('/com_list_brand/search', async (req, res) => {
+    const query = req.query.query || ''; // รับคำค้น
+    const page = parseInt(req.query.page) || 1; // หน้าที่ผู้ใช้ขอ
+    const limit = 10; // จำนวนรายการต่อหน้า
+    const skip = (page - 1) * limit;
+
+
+    try {
+        // ค้นหาจากชื่อคอมพิวเตอร์หรือซีพียู
+        const specs = await SpecJIB.find({
+            $or: [
+                { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
+                { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
+                { ModelCom: { $regex: query, $options: 'i' }},
+            ]
+        })
+        .skip(skip)
+        .limit(limit);
+
+        const totalSpecs = await SpecJIB.countDocuments({
+            $or: [
+                { ModelCPU: { $regex: query, $options: 'i' } },
+                { BrandCPU: { $regex: query, $options: 'i' } },
+                { ModelVGA: { $regex: query, $options: 'i' } },
+                { Rank1: { $regex: query, $options: 'i' }},
+                { ModelCom: { $regex: query, $options: 'i' }},
             ]
         });
 
@@ -365,7 +527,7 @@ app.get('/com_list/search', async (req, res) => {
             startPage = Math.max(1, endPage - maxPagesToShow + 1);
         }
 
-        res.render('com_list', {
+        res.render('com_list_brand', {
             specs: specs,
             currentPage: page,
             totalPages: totalPages,

@@ -36,12 +36,14 @@ table {
     width: 100%; /* ทำให้ตารางเต็มความกว้าง */
     border-collapse: collapse; /* ลบช่องว่างระหว่างเซลล์ */
     font-size: 14px; /* ขนาดตัวอักษรเล็กลง */
+    box-sizing: border-box;
 }
 
 th, td {
     padding: 8px; /* ลดการ padding */
     text-align: left;
     border: 1px solid #ccc;
+    box-sizing: border-box;
 }
 
 th {
