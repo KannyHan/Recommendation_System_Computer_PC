@@ -1,107 +1,9 @@
-const puppeteer = require('puppeteer');
-const { Parser } = require('json2csv');
-const fs = require('fs');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { Parser } = require('json2csv');
+const fs = require('fs');
 
-(async () => {
-  const browser = await puppeteer.launch({ headless: false });
-  const page = await browser.newPage();
-  
-  await page.goto('https://notebookspec.com/pc/ranking');
-
-  // กดปุ่ม "โหลดเพิ่มเติม" จนกว่าจะไม่มีให้กดอีก หรือข้อมูลครบ 2000 รายการ
-  const hrefList = [];
-  let loadMoreButton;
-
-  do {
-    loadMoreButton = await page.$('button.load-more');
-    if (loadMoreButton) {
-      await loadMoreButton.click();
-      await new Promise(resolve => setTimeout(resolve, 3000)); // รอให้ข้อมูลโหลด
-
-      // ตรวจสอบจำนวนรายการที่ดึงได้
-      const currentLinks = await page.evaluate(() => {
-        const rows = document.querySelectorAll('.table-row');
-        const links = [];
-        
-        rows.forEach(row => {
-          const titleCol = row.querySelector('.title-col');
-          if (titleCol) {
-            const nameElement = titleCol.querySelector('.name a');
-            if (nameElement) {
-              links.push(nameElement.href);
-            }
-          }
-        });
-        return links;
-      });
-
-      // เพิ่มลิงก์ใหม่ที่ดึงได้ลงใน hrefList โดยหลีกเลี่ยงค่าที่ซ้ำกัน
-      currentLinks.forEach(link => {
-        if (!hrefList.includes(link)) {
-          hrefList.push(link);
-        }
-      });
-    }
-  } while (loadMoreButton && hrefList.length < 100);
-
-  console.log(`จำนวนข้อมูลทั้งหมดที่ดึงมา: ${hrefList.length}`);
-
-  // ฟังก์ชันเพื่อดึงลิงก์จากแต่ละหน้าใน hrefList
-  async function scrapeLinks(url, browser) {
-    const page = await browser.newPage();
-    await page.goto(url);
-    await new Promise(resolve => setTimeout(resolve, 3000));
-
-    // ดึงข้อมูลลิงก์จากหน้า
-    const productLinks = await page.evaluate(() => {
-      const products = {};
-      const items = document.querySelectorAll('div.my-list-wrapper ul.my-list-item li.spec-item');
-      items.forEach(item => {
-        console.log(item)
-        const link = item.querySelector('.name a');
-        const key = item.querySelector('.type')?.innerText.trim().replace(":", "").replace(" ", "");
-        if (link && key) {
-          products[key] = link.href;
-        }
-      });
-      return products;
-    });
-
-    await page.close();
-    return productLinks;
-  }
-
-  const productData = [];
-  
-  // วนลูปดึงข้อมูลจากแต่ละลิงก์ใน hrefList
-  for (let index = 0; index < hrefList.length; index++) {
-    const productLinks = await scrapeLinks(hrefList[index], browser);
-    productData.push(productLinks);
-  }
-
-  const requiredKeys = ['CPU', 'MB', 'VGA', 'RAM', 'SSD', 'SSD2', 'HDD', 'PSU', 'CASE', 'COOLING', 'MONITOR'];
-
-  // ฟังก์ชันที่ใช้ตรวจสอบและเติมคีย์ที่ขาดหายไป
-  function ensureKeys(data) {
-    return data.map(item => {
-      requiredKeys.forEach(key => {
-        if (!item[key]) {
-          item[key] = 'none';
-        }
-      });
-      return item;
-    });
-  }
-
-  // เพิ่มคีย์ที่ขาดหายไป
-  const updatedItems = ensureKeys(productData);
-
-  // พิมพ์ผลลัพธ์
-  scrapeProductData(updatedItems);
-
-  async function scrapeProductDetails(productUrl, key) {
+async function scrapeProductDetails(productUrl, key) {
     try {
         if (key === 'none') {
             // ถ้า key เป็น 'none' ให้เติมข้อมูลเป็น 'none'
@@ -123,7 +25,10 @@ const cheerio = require('cheerio');
 
         const price = $('.shop-item .price').text().trim();
         specifications['price'] = price;
+        
 
+        
+        
         return specifications;
     } catch (error) {
         console.error(`Error scraping ${productUrl}:`, error.message);
@@ -132,30 +37,26 @@ const cheerio = require('cheerio');
 }
 
 async function scrapeProductData(products) {
+    const results = [];
 
-    const results = await Promise.all(products.map(async (product) => {
-      const productDetails = {};
+    for (let i = 0; i < products.length; i++) {
+        const product = products[i];
+        const productDetails = {};
 
-      // ดึงข้อมูลจากแต่ละคีย์พร้อมกันโดยใช้ Promise.all
-      const keys = Object.keys(product);
-      const dataPromises = keys.map(async (key) => {
-        const productUrl = product[key];
-        return { key, data: await scrapeProductDetails(productUrl, key) };
-      });
-      const data = await Promise.all(dataPromises);
-
-        data.forEach(({ key, data }) => {
+        for (const key in product) {
+            const productUrl = product[key];
+            const scrapedData = await scrapeProductDetails(productUrl, key);
             switch (key) {
                 case 'CPU':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['BrandCPU'] = data['Brand'] || 'none';
-                        requiredData['SeriesCPU'] = data['Series'] || 'none';
-                        requiredData['ModelCPU'] = data['Model'] || 'none';
-                        requiredData['CPU_Base_Clock'] = data['Socket'] || 'none';
-                        requiredData['Socket'] = data['Socket'] || 'none';
-                        requiredData['PriceCPU'] = data['price'] || 'none';
+                        requiredData['BrandCPU'] = scrapedData['Brand'] || 'none';
+                        requiredData['SeriesCPU'] = scrapedData['Series'] || 'none';
+                        requiredData['ModelCPU'] = scrapedData['Model'] || 'none';
+                        requiredData['CPU_Base_Clock'] = scrapedData['Socket'] || 'none';
+                        requiredData['Socket'] = scrapedData['Socket'] || 'none';
+                        requiredData['PriceCPU'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -172,15 +73,15 @@ async function scrapeProductData(products) {
                     break;
 
                 case 'MB':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['BrandMainboard'] = data['Brand'] || 'none';
-                        requiredData['ModelMainboard'] = data['Model'] || 'none';
-                        requiredData['Mainboard_CPU_Support'] = data['CPU Support'] || 'none';
-                        requiredData['MemoryMainboard'] = data['Memory Max.'] || 'none';
-                        requiredData['Mainboard_Memory_Support'] = data['Memory Support'] || 'none';
-                        requiredData['PriceMainboard'] = data['price'] || 'none';
+                        requiredData['BrandMainboard'] = scrapedData['Brand'] || 'none';
+                        requiredData['ModelMainboard'] = scrapedData['Model'] || 'none';
+                        requiredData['Mainboard_CPU_Support'] = scrapedData['CPU Support'] || 'none';
+                        requiredData['MemoryMainboard'] = scrapedData['Memory Max.'] || 'none';
+                        requiredData['Mainboard_Memory_Support'] = scrapedData['Memory Support'] || 'none';
+                        requiredData['PriceMainboard'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -198,18 +99,18 @@ async function scrapeProductData(products) {
                     break;
 
                 case 'VGA':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['BrandVGA'] = data['Brand'] || 'none';
-                        requiredData['ChipsetVGA'] = data['GPU Chipset'] || 'none';
-                        requiredData['SeriesVGA'] = data['Series'] || 'none';
-                        requiredData['ModelVGA'] = data['Model'] || 'none';
-                        requiredData['VGA_Base_Clock'] = data['GPU Clock'] || 'none';
-                        requiredData['VGA_Boost_Clock'] = data['Boost Clock'] || 'none';
-                        requiredData['VGA_Memory_Clock'] = data['Memory Clock'] || 'none';
-                        requiredData['VGA_Memory_Size'] = data['Memory Size'] || 'none';
-                        requiredData['PriceVGA'] = data['price'] || 'none';
+                        requiredData['BrandVGA'] = scrapedData['Brand'] || 'none';
+                        requiredData['ChipsetVGA'] = scrapedData['GPU Chipset'] || 'none';
+                        requiredData['SeriesVGA'] = scrapedData['Series'] || 'none';
+                        requiredData['ModelVGA'] = scrapedData['Model'] || 'none';
+                        requiredData['VGA_Base_Clock'] = scrapedData['GPU Clock'] || 'none';
+                        requiredData['VGA_Boost_Clock'] = scrapedData['Boost Clock'] || 'none';
+                        requiredData['VGA_Memory_Clock'] = scrapedData['Memory Clock'] || 'none';
+                        requiredData['VGA_Memory_Size'] = scrapedData['Memory Size'] || 'none';
+                        requiredData['PriceVGA'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -229,12 +130,12 @@ async function scrapeProductData(products) {
                     }
                     break;
                 case 'RAM':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['RAM_Size'] = data['Memory Size'] || 'none';
-                        requiredData['RAM_Speed'] = data['Memory Speed'] || 'none';
-                        requiredData['PriceRAM'] = data['price'] || 'none';
+                        requiredData['RAM_Size'] = scrapedData['Memory Size'] || 'none';
+                        requiredData['RAM_Speed'] = scrapedData['Memory Speed'] || 'none';
+                        requiredData['PriceRAM'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -247,86 +148,117 @@ async function scrapeProductData(products) {
                         productDetails[key] = requiredData;
                     }
                     break;
+
                 case 'SSD':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['SSD_Size'] = data['Size'] || 'none';
-                        requiredData['SSD_Seq_Read'] = data['Seq. Read'] || 'none';
-                        requiredData['SSD_Seq_Write'] = data['Seq. Write'] || 'none';
-                        requiredData['PriceSSD'] = data['price'] || 'none';
+                        requiredData['CapacitySSD'] = scrapedData['Capacity'] || 'none';
+                        requiredData['Read_SSD/Write_SSD'] = scrapedData['Read / Write'] || 'none';
+                        requiredData['PriceSSD'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
                         const requiredData = {};
 
-                        requiredData['SSD_Size'] = 'none';
-                        requiredData['SSD_Seq_Read'] = 'none';
-                        requiredData['SSD_Seq_Write'] = 'none';
+                        requiredData['CapacitySSD'] = 'none';
+                        requiredData['Read_SSD/Write_SSD'] = 'none';
                         requiredData['PriceSSD'] = 'none';
 
                         productDetails[key] = requiredData;
                     }
                     break;
-                case 'HDD':
-                    if (data) {
+
+                case 'SSD2':
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['HDD_Size'] = data['Size'] || 'none';
-                        requiredData['PriceHDD'] = data['price'] || 'none';
+                        requiredData['CapacitySSD2'] = scrapedData['Capacity'] || 'none';
+                        requiredData['Read_SSD/Write_SSD2'] = scrapedData['Read / Write'] || 'none';
+                        requiredData['PriceSSD2'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
                         const requiredData = {};
 
-                        requiredData['HDD_Size'] = 'none';
+                        requiredData['CapacitySSD2'] = 'none';
+                        requiredData['Read_SSD2/Write_SSD2'] = 'none';
+                        requiredData['PriceSSD2'] = 'none';
+
+                        productDetails[key] = requiredData;
+                    }
+                    break;
+
+                case 'HDD':
+                    if (scrapedData) {
+                        const requiredData = {};
+
+                        requiredData['CapacityHDD'] = scrapedData['Capacity'] || 'none';
+                        requiredData['Speed_HDD'] = scrapedData['Rotational Speed'] || 'none';
+                        requiredData['PriceHDD'] = scrapedData['price'] || 'none';
+
+                        productDetails[key] = requiredData;
+                    } else {
+                        const requiredData = {};
+
+                        requiredData['CapacityHDD'] = 'none';
+                        requiredData['Speed_HDD'] = 'none';
                         requiredData['PriceHDD'] = 'none';
 
                         productDetails[key] = requiredData;
                     }
                     break;
+
                 case 'PSU':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['PSU_Power'] = data['Power'] || 'none';
-                        requiredData['PricePSU'] = data['price'] || 'none';
+                        requiredData['PS'] = scrapedData['Maximum Power'] || 'none';
+                        requiredData['PricePS'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
                         const requiredData = {};
 
-                        requiredData['PSU_Power'] = 'none';
-                        requiredData['PricePSU'] = 'none';
+                        requiredData['PS'] = 'none';
+                        requiredData['PricePS'] = 'none';
 
                         productDetails[key] = requiredData;
                     }
                     break;
+                
                 case 'CASE':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['CASE_Type'] = data['Type'] || 'none';
-                        requiredData['PriceCASE'] = data['price'] || 'none';
+                        requiredData['BrandCASE'] = scrapedData['Brand'] || 'none';
+                        requiredData['ModelCASE'] = scrapedData['Model'] || 'none';
+                        requiredData['WeightCASE'] = scrapedData['Weight'] || 'none';
+                        requiredData['I_O_Ports_CASE'] = scrapedData['I/O Ports'] || 'none';
+                        requiredData['PriceCASE'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
                         const requiredData = {};
 
-                        requiredData['CASE_Type'] = 'none';
+                        requiredData['PS'] = 'none';
+                        requiredData['PricePS'] = 'none';
+                        requiredData['WeightCASE'] = 'none';
+                        requiredData['I_O_Ports_CASE'] = 'none';
                         requiredData['PriceCASE'] = 'none';
 
                         productDetails[key] = requiredData;
                     }
                     break;
+                
                 case 'COOLING':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['BrandCOOLING'] = data['Brand'] || 'none';
-                        requiredData['ModelCOOLING'] = data['Model'] || 'none';
-                        requiredData['Fan_Built_In_COOLING'] = data['Fan Built-in'] || 'none';
-                        requiredData['PriceCOOLING'] = data['price'] || 'none';
+                        requiredData['BrandCOOLING'] = scrapedData['Brand'] || 'none';
+                        requiredData['ModelCOOLING'] = scrapedData['Model'] || 'none';
+                        requiredData['Fan_Built_In_COOLING'] = scrapedData['Fan Built-In'] || 'none';
+                        requiredData['PriceCOOLING'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -340,16 +272,17 @@ async function scrapeProductData(products) {
                         productDetails[key] = requiredData;
                     }
                     break;
+
                 case 'MONITOR':
-                    if (data) {
+                    if (scrapedData) {
                         const requiredData = {};
 
-                        requiredData['BrandMONITOR'] = data['Brand'] || 'none';
-                        requiredData['ModelMONITOR'] = data['Model'] || 'none';
-                        requiredData['Display_Size_MONITOR'] = data['Display Size'] || 'none';
-                        requiredData['Max_Resolution_MONITOR'] = data['Max. Resolution'] || 'none';
-                        requiredData['Refresh_Rate_MONITOR'] = data['Refresh Rate'] || 'none';
-                        requiredData['PriceMONITOR'] = data['price'] || 'none';
+                        requiredData['BrandMONITOR'] = scrapedData['Brand'] || 'none';
+                        requiredData['ModelMONITOR'] = scrapedData['Model'] || 'none';
+                        requiredData['Display_Size_MONITOR'] = scrapedData['Display Size'] || 'none';
+                        requiredData['Max_Resolution_MONITOR'] = scrapedData['Max Resolution'] || 'none';
+                        requiredData['Refresh_Rate_MONITOR'] = scrapedData['Refresh Rate'] || 'none';
+                        requiredData['PriceMONITOR'] = scrapedData['price'] || 'none';
 
                         productDetails[key] = requiredData;
                     } else {
@@ -365,12 +298,15 @@ async function scrapeProductData(products) {
                         productDetails[key] = requiredData;
                     }
                     break;
+            
+                default:
+                    break;
             }
-        });
+        }
+        results.push(productDetails);
+    }
 
-        return productDetails;
-    }));
-  exportToCSV(results)
+    exportToCSV(results)
 }
 
 async function exportToCSV(productData) {
@@ -441,21 +377,39 @@ async function exportToCSV(productData) {
     const json2csvParser = new Parser({ fields });
     const csv = json2csvParser.parse(productData);
 
-    const filePath = `products_com.csv`;  // ตั้งชื่อไฟล์โดยใช้ index
-
-    // บันทึกไฟล์ CSV
-    fs.writeFileSync(filePath, csv , 'utf8');
+    // บันทึกเป็นไฟล์ CSV
+    fs.writeFileSync('output.csv', csv);
     console.log('CSV file has been saved.');
+}
 
-    // ตรวจสอบไฟล์ที่ถูกสร้าง
-    if (fs.existsSync(filePath)) {
-        console.log(`File ${filePath} has been created successfully.`);
-    } else {
-        console.error(`File ${filePath} was not created.`);
+// เรียกใช้งานฟังก์ชัน
+// ตัวอย่างข้อมูล
+const products = [
+    { 
+        CPU: 'https://notebookspec.com/pc-cpu/275-intel-core-i9-7980xe.html',
+        MB: 'https://notebookspec.com/pc-mb/989-asus-rog-rampage-vi-extreme.html',
+        VGA: 'https://notebookspec.com/pc-vga/989-asus-rog-strix-rtx-2080ti-advanced-edition.html',
+        RAM: 'https://notebookspec.com/pc-ram/727-corsair-vengeance-pro-rgb-ddr4-32gb-8gbx4-3600-black.html',
+        SSD: 'https://notebookspec.com/pc-ssd/319-samsung-960-pro-m2-2tb.html',
+        SSD2: 'https://notebookspec.com/pc-ssd/371-samsung-860-evo-2tb.html',
+        HDD: 'https://notebookspec.com/pc-hdd/177-seagate-ironwolf-pro-12tb-st12000ne0007.html',
+        PSU: 'https://notebookspec.com/pc-psu/432-corsair-ax1600i-titanium.html',
+        CASE: 'https://notebookspec.com/pc-case/630-corsair-obsidian-1000d-rgb.html',
+        COOLING: 'https://notebookspec.com/pc-liquid-cooling/171-thermaltake-pacific-series.html'
+    },
+    {
+        CPU: 'none',
+        MB: 'https://notebookspec.com/pc-mb/1549-gigabyte-b450m-ds3h-v2.html',
+        VGA: 'https://notebookspec.com/pc-vga/2055-msi-geforce-rtx-4070-super-12g-ventus-2x-white-oc.html',
+        RAM: 'https://notebookspec.com/pc-ram/1516-blackberry-maximus-ddr4-32gb-16gbx2-3200-gray.html',
+        SSD: 'https://notebookspec.com/pc-ssd/888-hiksemi-future-512gb-with-heatsink.html',
+        PSU: 'https://notebookspec.com/pc-psu/760-coolermaster-mwe-bronze-750-v3.html',
+        CASE: 'https://notebookspec.com/pc-case/1324-nzxt-h5-flow-white.html',
+        COOLING: 'https://notebookspec.com/pc-liquid-cooling/410-thermaltake-th240-v2-argb-sync.html',
+        MONITOR: 'https://notebookspec.com/pc-monitor/1637-benq-mobiuz-ex270qm.html'
     }
+];
 
-  }
-    
-
-  await browser.close();
-})();
+scrapeProductData(products).then(results => {
+    console.log(results);
+});

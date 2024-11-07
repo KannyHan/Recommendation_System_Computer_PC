@@ -18,23 +18,25 @@
             <a href="/companent"><li>ส่วนประกอบคอมพิวเตอร์</li></a>
         </ul>
     </div>
-    <center>
+
         <div class="paglogin">
-            <h1>Admin Login</h1>
+            <center><h1>Admin Login</h1></center>
+            
             <form action="/Adminlogin" method="POST">
                 <label for="username">Username:</label>
                 <input type="text" name="username" id="username" required><br>
                 
                 <label for="password">Password:</label>
                 <input type="password" name="password" id="password" required><br>
+                <center><button type="submit">Login</button></center>
                 
-                <button type="submit">Login</button>
                 
             </form>
             <br>
-            <a href="/register"><button type="submit">Register</button></a>
+            <center>Don't have an account? <a href="/register">Sign up </a></center>
+            
             
         </div>
-    </center>
+
 </body>
 </html>
