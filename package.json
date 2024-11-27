@@ -22,7 +22,7 @@
     "json2csv": "^6.0.0-alpha.2",
     "lodash": "^4.17.21",
     "mongodb": "^6.9.0",
-    "mongoose": "^8.7.1",
+    "mongoose": "^8.8.2",
     "puppeteer": "^23.5.3"
   },
   "devDependencies": {
